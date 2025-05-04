@@ -17,6 +17,8 @@ export default function Home() {
       timerRef.current = setTimeout(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
+    } else if (isRecording && timeLeft === 0) {
+      stopRecording();
     }
     
     return () => {
@@ -32,17 +34,14 @@ export default function Home() {
       setAlerted(false);
       setIsRecording(true);
       setTimeLeft(5);
+      setIsLoading(false);
       
       const { default: MicRecorder } = await import('mic-recorder-to-mp3');
       const recorder = new MicRecorder({ bitRate: 128 });
       recorderRef.current = recorder;
 
       await recorder.start();
-      console.log('Recording...');
-      
-      setTimeout(() => {
-        stopRecording();
-      }, 5000);
+      console.log('Recording started...');
     } catch (error) {
       console.error('Error starting recording:', error);
       setIsRecording(false);
@@ -51,13 +50,14 @@ export default function Home() {
   };
 
   const stopRecording = async () => {
+    if (!recorderRef.current || !isRecording) return;
+    
     try {
-      if (!isRecording) return;
-      
       setIsRecording(false);
       setIsLoading(true);
       setTimeLeft(0);
       
+      console.log('Recording stopped, processing...');
       const recorder = recorderRef.current;
       const [buffer, blob] = await recorder.stop().getMp3();
       const file = new File(buffer, 'recording.mp3', { type: blob.type });
@@ -102,18 +102,6 @@ export default function Home() {
     }
   };
 
-  const cancelRecording = () => {
-    if (recorderRef.current) {
-      try {
-        recorderRef.current.stop();
-      } catch (error) {
-        console.error('Error stopping recorder:', error);
-      }
-    }
-    setIsRecording(false);
-    setTimeLeft(0);
-  };
-
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
@@ -129,12 +117,6 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-700 mb-4 text-center">Recording your voice...</p>
-              <button 
-                onClick={cancelRecording}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
             </div>
           ) : isLoading ? (
             <div className="flex flex-col items-center">
